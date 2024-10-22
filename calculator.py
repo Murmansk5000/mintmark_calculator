@@ -1,11 +1,15 @@
+from functools import partial
 import csv
 import urllib.request
 import json
 from urllib.parse import urljoin
 from itertools import combinations_with_replacement
 
-from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QFormLayout,
-                             QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QCheckBox, QHBoxLayout, QMessageBox)
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QFormLayout,
+    QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QCheckBox, QHBoxLayout,
+    QMessageBox
+)
 from PyQt5.QtCore import Qt
 import sys
 import pandas as pd
@@ -14,6 +18,7 @@ import pandas as pd
 data_file = "data/mintmark_data.csv"
 json_file = "data/mintmark_data.json"
 combinations_file = "data/combinations_data.csv"
+
 
 # 下载并保存 JSON 数据的方法
 def download_and_store_json():
@@ -46,6 +51,7 @@ def download_and_store_json():
     except Exception as e:
         QMessageBox.critical(None, "未知错误", f"发生未知错误: {e}")
 
+
 # 更新 JSON 数据为 CSV 文件的方法
 def convert_json_to_csv():
     try:
@@ -59,7 +65,8 @@ def convert_json_to_csv():
 
         # 将数据保存到 CSV 文件（只保留 Type 为 3 的刻印，并去掉 Type 列，只保存总和列）
         with open(data_file, 'w', newline='', encoding='utf-8') as csvfile:
-            fieldnames = ["id", "quality", "description", "total_attr_value", "total_sum", "monster_id", "mintmark_class"]
+            fieldnames = ["id", "quality", "description", "total_attr_value", "total_sum", "monster_id",
+                          "mintmark_class"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for mintmark in MintMark:
@@ -76,7 +83,8 @@ def convert_json_to_csv():
                     max_attr_value = mintmark.get("MaxAttriValue", "")
                     extra_attr_value = mintmark.get("ExtraAttriValue", "")
                     max_values = [int(num) for num in max_attr_value.split()]
-                    extra_values = [int(num) for num in extra_attr_value.split()] if extra_attr_value else [0] * len(max_values)
+                    extra_values = [int(num) for num in extra_attr_value.split()] if extra_attr_value else [0] * len(
+                        max_values)
                     total_values = [max_val + extra_val for max_val, extra_val in zip(max_values, extra_values)]
                     total_attr_value = " ".join(map(str, total_values))
 
@@ -98,8 +106,10 @@ def convert_json_to_csv():
     except Exception as e:
         QMessageBox.critical(None, "错误", f"转换 JSON 数据到 CSV 时发生错误: {e}")
 
+
 # 初步过滤刻印数据的方法
-def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None, filter_low_values=False, total_sum_filter=None):
+def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None, filter_low_values=False,
+                      total_sum_filter=None):
     filtered_mintmark_list = []
     for row in mintmark_list:
         if row['quality'] == '5' and total_sum_filter:
@@ -135,6 +145,7 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
         filtered_mintmark_list.append(row)
     return filtered_mintmark_list
 
+
 # 进一步过滤刻印，基于“特定属性必须为 0”
 def filter_zero_requirements(mintmark_list, attribute_targets):
     filtered_list = []
@@ -156,6 +167,7 @@ def filter_zero_requirements(mintmark_list, attribute_targets):
         if valid:
             filtered_list.append(mintmark)
     return filtered_list
+
 
 # 实现添加总和列的功能
 # 在此阶段排除来自同一系列的三个刻印组合
@@ -205,18 +217,21 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
             attr_values_sum = [
                 sum(attr_values_list[i][attr_index] for i in combination) for attr_index in range(6)
             ]
-            total_sum = sum(attr_values_sum[attr_index] for attr_index in attribute_targets if attribute_targets[attr_index] != (0, 0))
+            total_sum = sum(attr_values_sum[attr_index] for attr_index in attribute_targets if
+                            attribute_targets[attr_index] != (0, 0))
             data_to_save.append([descriptions[i] for i in combination] + attr_values_sum + [total_sum])
 
     # 调试输出以检查数据保存过程
-    print("Data to save (initial combinations):", data_to_save)
+    # print("Data to save (initial combinations):", data_to_save)
 
     # 将初步组合保存到文件，增加“总和”列
-    columns = ["\u523b\u53701", "\u523b\u53702", "\u523b\u53703", "\u653b\u51fb", "\u9632\u5fa1", "\u7279\u653b", "\u7279\u9632", "\u901f\u5ea6", "\u4f53\u529b", "\u603b\u548c"]
+    columns = ["\u523b\u53701", "\u523b\u53702", "\u523b\u53703", "\u653b\u51fb", "\u9632\u5fa1", "\u7279\u653b",
+               "\u7279\u9632", "\u901f\u5ea6", "\u4f53\u529b", "\u603b\u548c"]
     df = pd.DataFrame(data_to_save, columns=columns)
     df.to_csv(combinations_file, index=False, encoding='utf-8')
 
     return initial_combinations
+
 
 # 验证刻印组合是否符合所有条件（从文件中读取）
 def validate_combinations(attribute_targets, attributes):
@@ -227,7 +242,7 @@ def validate_combinations(attribute_targets, attributes):
         return valid_combinations
 
     # 调试输出以检查从文件中读取的数据
-    print("Data loaded for validation:", df)
+    # print("Data loaded for validation:", df)
 
     for _, row in df.iterrows():
         valid = True
@@ -249,14 +264,17 @@ def validate_combinations(attribute_targets, attributes):
                 break
 
         if valid:
-            valid_combinations.append([row["刻印1"], row["刻印2"], row["刻印3"], row["攻击"], row["防御"], row["特攻"], row["特防"], row["速度"], row["体力"], row["总和"]])
+            valid_combinations.append(
+                [row["刻印1"], row["刻印2"], row["刻印3"], row["攻击"], row["防御"], row["特攻"], row["特防"],
+                 row["速度"], row["体力"], row["总和"]])
 
     # 调试输出以检查有效组合
-    print("Valid combinations:", valid_combinations)
+    # print("Valid combinations:", valid_combinations)
 
     return valid_combinations
 
-# 修改 GUI 结果表格，增加总和列
+
+# 创建 GUI
 
 def create_gui():
     app = QApplication(sys.argv)
@@ -268,6 +286,7 @@ def create_gui():
     form_layout = QFormLayout()
     input_fields = {}
     attributes = ['攻击', '防御', '特攻', '特防', '速度', '体力']
+
     for index, attr in enumerate(attributes):
         row_layout = QHBoxLayout()
         min_field = QLineEdit()
@@ -278,15 +297,19 @@ def create_gui():
         row_layout.addWidget(max_field)
 
         reset_button = QPushButton('置0')
+        clear_button = QPushButton('清空')
 
+        # 使用 make_reset_function 生成每个 reset 按钮的绑定函数
         def make_reset_function(min_field, max_field):
-            def reset():
-                min_field.setText("0")
-                max_field.setText("0")
-            return reset
+            return lambda: (min_field.setText("0"), max_field.setText("0"))
 
         reset_button.clicked.connect(make_reset_function(min_field, max_field))
+
+        # 使用 partial 传递不同的 min_field 和 max_field 实例
+        clear_button.clicked.connect(partial(lambda min_f, max_f: (min_f.clear(), max_f.clear()), min_field, max_field))
+
         row_layout.addWidget(reset_button)
+        row_layout.addWidget(clear_button)
 
         form_layout.addRow(row_layout)
         input_fields[index] = (min_field, max_field)
@@ -328,7 +351,9 @@ def create_gui():
     update_button = QPushButton('更新刻印文件')
     result_table = QTableWidget()
     result_table.setColumnCount(10)  # 原来是9，现在增加一列
-    result_table.setHorizontalHeaderLabels(["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"])
+    result_table.setHorizontalHeaderLabels(
+        ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]
+    )
 
     def on_filter_button_clicked():
         attribute_targets = {}
@@ -366,7 +391,10 @@ def create_gui():
             QMessageBox.critical(window, "错误", f"文件 {data_file} 未找到，请先下载数据。")
             return
 
-        filtered_mintmark_list = initial_filtering(mintmark_list, monster_id_filter=monster_id, quality_filter=quality_filter, filter_low_values=filter_low_values, total_sum_filter=total_sum_filter)
+        # 调用初步过滤和验证的方法，这些可以根据需要进一步完善
+        filtered_mintmark_list = initial_filtering(mintmark_list, monster_id_filter=monster_id,
+                                                   quality_filter=quality_filter, filter_low_values=filter_low_values,
+                                                   total_sum_filter=total_sum_filter)
         filtered_mintmark_list = filter_zero_requirements(filtered_mintmark_list, attribute_targets)
         find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=symmetric)
         valid_combinations = validate_combinations(attribute_targets, attributes)
@@ -395,6 +423,7 @@ def create_gui():
     window.setLayout(layout)
     window.show()
     sys.exit(app.exec_())
+
 
 if __name__ == "__main__":
     create_gui()
