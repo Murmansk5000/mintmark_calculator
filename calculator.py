@@ -4,7 +4,6 @@ import json
 from urllib.parse import urljoin
 from itertools import combinations_with_replacement
 
-
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QFormLayout,
                              QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QCheckBox, QHBoxLayout, QMessageBox)
 from PyQt5.QtCore import Qt
@@ -99,7 +98,7 @@ def convert_json_to_csv():
     except Exception as e:
         QMessageBox.critical(None, "错误", f"转换 JSON 数据到 CSV 时发生错误: {e}")
 
-# 第一步: 根据特定条件对刻印进行初步过滤
+# 初步过滤刻印数据的方法
 def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None, filter_low_values=False, total_sum_filter=None):
     filtered_mintmark_list = []
     for row in mintmark_list:
@@ -158,7 +157,8 @@ def filter_zero_requirements(mintmark_list, attribute_targets):
             filtered_list.append(mintmark)
     return filtered_list
 
-# 查找符合组合要求的初步刻印组合并保存到文件
+# 实现添加总和列的功能
+# 在此阶段排除来自同一系列的三个刻印组合
 def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=False):
     ids, descriptions, mintmark_classes, attr_values_list = [], [], [], []
 
@@ -176,39 +176,44 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
         mintmark_classes.append(mintmark["mintmark_class"])
 
     candidates = list(range(len(ids)))
-    initial_combinations = []
+    initial_combinations = set()  # 使用集合来确保唯一性
     data_to_save = []
 
-    if symmetric:
-        for candidate in candidates:
-            combination_part = (candidate, candidate)
-            for third_candidate in candidates:
-                combination = combination_part + (third_candidate,)
-                valid_combination = all(
-                    target_min <= sum(attr_values_list[i][attr_index] for i in combination) <= target_max
-                    for attr_index, (target_min, target_max) in attribute_targets.items()
-                )
-                if valid_combination:
-                    initial_combinations.append(combination)
-                    data_to_save.append([descriptions[i] for i in combination] + \
-                                        [sum(attr_values_list[i][attr_index] for i in combination) for attr_index in range(6)])
-    else:
-        for combination in combinations_with_replacement(candidates, 3):
-            class_counts = {mintmark_classes[i]: combination.count(i) for i in combination}
-            if any(count > 2 for count in class_counts.values()):
+    for combination in combinations_with_replacement(candidates, 3):
+        class_counts = {mintmark_classes[i]: combination.count(i) for i in combination}
+        # 确保最多只有两个刻印来自于同一个系列
+        if any(count > 2 for count in class_counts.values()):
+            continue
+
+        # 确保没有三个刻印来自于同一个系列
+        if len(set([mintmark_classes[i] for i in combination])) == 1:
+            continue
+
+        if symmetric:
+            # Ensure that there are exactly two identical elements in the combination
+            if len(set(combination)) > 2:
+                continue
+            if not any(count == 2 for count in class_counts.values()):
                 continue
 
-            valid_combination = all(
-                target_min <= sum(attr_values_list[i][attr_index] for i in combination) <= target_max
-                for attr_index, (target_min, target_max) in attribute_targets.items()
-            )
-            if valid_combination:
-                initial_combinations.append(combination)
-                data_to_save.append([descriptions[i] for i in combination] + \
-                                    [sum(attr_values_list[i][attr_index] for i in combination) for attr_index in range(6)])
+        valid_combination = all(
+            target_min <= sum(attr_values_list[i][attr_index] for i in combination) <= target_max
+            for attr_index, (target_min, target_max) in attribute_targets.items()
+        )
+        if valid_combination:
+            initial_combinations.add(combination)
+            attr_values_sum = [
+                sum(attr_values_list[i][attr_index] for i in combination) for attr_index in range(6)
+            ]
+            total_sum = sum(attr_values_sum[attr_index] for attr_index in attribute_targets if attribute_targets[attr_index] != (0, 0))
+            data_to_save.append([descriptions[i] for i in combination] + attr_values_sum + [total_sum])
 
-    # 将初步组合保存到文件
-    df = pd.DataFrame(data_to_save, columns=["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力"])
+    # 调试输出以检查数据保存过程
+    print("Data to save (initial combinations):", data_to_save)
+
+    # 将初步组合保存到文件，增加“总和”列
+    columns = ["\u523b\u53701", "\u523b\u53702", "\u523b\u53703", "\u653b\u51fb", "\u9632\u5fa1", "\u7279\u653b", "\u7279\u9632", "\u901f\u5ea6", "\u4f53\u529b", "\u603b\u548c"]
+    df = pd.DataFrame(data_to_save, columns=columns)
     df.to_csv(combinations_file, index=False, encoding='utf-8')
 
     return initial_combinations
@@ -221,8 +226,22 @@ def validate_combinations(attribute_targets, attributes):
     except FileNotFoundError:
         return valid_combinations
 
+    # 调试输出以检查从文件中读取的数据
+    print("Data loaded for validation:", df)
+
     for _, row in df.iterrows():
         valid = True
+
+        # 确保最多只有两个刻印来自于同一个系列
+        class_counts = {}
+        for col in ["刻印1", "刻印2", "刻印3"]:
+            mintmark_class = row[col]
+            if mintmark_class not in class_counts:
+                class_counts[mintmark_class] = 0
+            class_counts[mintmark_class] += 1
+        if any(count > 2 for count in class_counts.values()):
+            continue
+
         for attr_index, (target_min, target_max) in attribute_targets.items():
             total_value = row[attributes[attr_index]]
             if not (target_min <= total_value <= target_max):
@@ -230,11 +249,14 @@ def validate_combinations(attribute_targets, attributes):
                 break
 
         if valid:
-            valid_combinations.append([row["刻印1"], row["刻印2"], row["刻印3"], row["攻击"], row["防御"], row["特攻"], row["特防"], row["速度"], row["体力"]])
+            valid_combinations.append([row["刻印1"], row["刻印2"], row["刻印3"], row["攻击"], row["防御"], row["特攻"], row["特防"], row["速度"], row["体力"], row["总和"]])
+
+    # 调试输出以检查有效组合
+    print("Valid combinations:", valid_combinations)
 
     return valid_combinations
 
-# 创建 GUI
+# 修改 GUI 结果表格，增加总和列
 
 def create_gui():
     app = QApplication(sys.argv)
@@ -305,8 +327,8 @@ def create_gui():
     download_button = QPushButton('下载刻印数据')
     update_button = QPushButton('更新刻印文件')
     result_table = QTableWidget()
-    result_table.setColumnCount(9)
-    result_table.setHorizontalHeaderLabels(["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力"])
+    result_table.setColumnCount(10)  # 原来是9，现在增加一列
+    result_table.setHorizontalHeaderLabels(["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"])
 
     def on_filter_button_clicked():
         attribute_targets = {}
