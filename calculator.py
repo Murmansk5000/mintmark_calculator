@@ -334,6 +334,7 @@ def create_gui():
     form_layout.addRow(symmetric_checkbox)
 
     improve_efficiency_checkbox = QCheckBox("提升效率【可能会缺失刻印】")
+    improve_efficiency_checkbox.setChecked(True)
     form_layout.addRow(improve_efficiency_checkbox)
 
     filter_low_values_checkbox = QCheckBox("去除属性值过低的刻印（低于目标值的五分之一）")
