@@ -185,7 +185,7 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
 
 # 初步过滤刻印数据的方法
 def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None, filter_low_values=False,
-                      total_sum_filter=None):
+                      total_sum_filter=None, attribute_targets=None, improve_efficiency=False):
     filtered_mintmark_list = []
     for row in mintmark_list:
         if row['quality'] == '5' and total_sum_filter:
@@ -219,6 +219,17 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
                 continue
 
         filtered_mintmark_list.append(row)
+
+    # 如果用户在两个或更多属性上设定了下限，且勾选了提高效率选项，则先进行排序并只保留前200个
+    if improve_efficiency and attribute_targets:
+        relevant_indices = [index for index, (min_value, max_value) in attribute_targets.items() if min_value > 0]
+        if len(relevant_indices) >= 2:
+            filtered_mintmark_list.sort(
+                key=lambda x: sum(int(x["total_attr_value"].split()[i]) for i in relevant_indices),
+                reverse=True
+            )
+            filtered_mintmark_list = filtered_mintmark_list[:200]
+
     return filtered_mintmark_list
 
 # 进一步过滤刻印，基于“特定属性必须为 0”
@@ -322,6 +333,9 @@ def create_gui():
     symmetric_checkbox = QCheckBox("对称")
     form_layout.addRow(symmetric_checkbox)
 
+    improve_efficiency_checkbox = QCheckBox("提升效率【可能会缺失刻印】")
+    form_layout.addRow(improve_efficiency_checkbox)
+
     filter_low_values_checkbox = QCheckBox("去除属性值过低的刻印（低于目标值的五分之一）")
     filter_low_values_checkbox.setChecked(True)
     form_layout.addRow(filter_low_values_checkbox)
@@ -379,6 +393,7 @@ def create_gui():
 
         monster_id = monster_id_field.text().strip()
         symmetric = symmetric_checkbox.isChecked()
+        improve_efficiency = improve_efficiency_checkbox.isChecked()
         filter_low_values = filter_low_values_checkbox.isChecked()
         quality_filter = [value for value, checkbox in quality_checkboxes.items() if checkbox.isChecked()]
         total_sum_filter = [value for value, checkbox in total_sum_checkboxes.items() if checkbox.isChecked()]
@@ -396,7 +411,8 @@ def create_gui():
         # 调用初步过滤和验证的方法，这些可以根据需要进一步完善
         filtered_mintmark_list = initial_filtering(mintmark_list, monster_id_filter=monster_id,
                                                    quality_filter=quality_filter, filter_low_values=filter_low_values,
-                                                   total_sum_filter=total_sum_filter)
+                                                   total_sum_filter=total_sum_filter, attribute_targets=attribute_targets,
+                                                   improve_efficiency=improve_efficiency)
         filtered_mintmark_list = filter_zero_requirements(filtered_mintmark_list, attribute_targets)
         find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=symmetric)
         valid_combinations = validate_combinations(attribute_targets, attributes)
