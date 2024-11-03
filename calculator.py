@@ -209,6 +209,8 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
 def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None, filter_low_values=False,
                       total_sum_filter=None, attribute_targets=None, improve_efficiency=False, top_n=200):
     filtered_mintmark_list = []
+    used_monster_ids = set()  # 用于记录已经使用过的专属刻印
+
     for row in mintmark_list:
         # 如果用户提供了 monster_id_filter
         if monster_id_filter:
@@ -216,24 +218,19 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
             if row.get("monster_id") and row.get("monster_id") != monster_id_filter:
                 continue
 
+        # 如果刻印有 monster_id（专属刻印），检查它是否已经被使用过
+        monster_id = row.get("monster_id")
+        if monster_id:
+            if monster_id in used_monster_ids:
+                continue  # 该专属刻印已被使用过，跳过该刻印
+            else:
+                used_monster_ids.add(monster_id)  # 记录使用过的专属刻印
 
-
-        if row['quality'] == '5' and total_sum_filter:
-            try:
-                total_sum = int(row['total_sum'])
-                if not any([
-                    ('>220' in total_sum_filter and total_sum > 220),
-                    ('=220' in total_sum_filter and total_sum == 220),
-                    ('<220' in total_sum_filter and total_sum < 220)
-                ]):
-                    continue
-            except ValueError:
-                continue
-
-
+        # 质量过滤
         if quality_filter and row["quality"] not in quality_filter:
             continue
 
+        # 过滤低属性值的刻印
         if filter_low_values:
             try:
                 total_attr_values = [int(num) for num in row["total_attr_value"].split()]
@@ -242,6 +239,7 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
             except ValueError:
                 continue
 
+        # 将符合条件的刻印加入列表
         filtered_mintmark_list.append(row)
 
     # 如果用户在两个或更多属性上设定了下限，且勾选了提高效率选项，则先进行排序并只保留前 top_n 个
@@ -255,6 +253,7 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
             filtered_mintmark_list = filtered_mintmark_list[:top_n]
 
     return filtered_mintmark_list
+
 
 # 进一步过滤刻印，基于“特定属性必须为 0”
 def filter_zero_requirements(mintmark_list, attribute_targets):
