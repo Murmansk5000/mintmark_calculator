@@ -14,6 +14,7 @@ from PyQt5.QtCore import Qt
 import sys
 import pandas as pd
 
+
 # 定义用于存储刻印数据的 CSV 文件路径
 data_file = "data/mintmark_data.csv"
 json_file = "data/mintmark_data.json"
@@ -121,8 +122,9 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
     ids, descriptions, mintmark_classes, attr_values_list = [], [], [], []
 
     # 加载限制的系列id
-    only1_series = load_only1_series()
+    only1_series = load_only1_series()  # 加载`only1`系列的ID集，用于后续判断
 
+    # 遍历 filtered_mintmark_list 提取每个刻印的属性
     for mintmark in filtered_mintmark_list:
         try:
             total_attr_values = [int(num) for num in mintmark["total_attr_value"].split()]
@@ -151,18 +153,27 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
         if len(set([mintmark_classes[i] for i in combination])) == 1:
             continue
 
-        # 确保only1系列的刻印最多只有一个
-        only1_count = sum(1 for i in combination if mintmark_classes[i] in only1_series)
-        if only1_count > 1:
+        # 确保only1系列的刻印最多只有一个，并且相同的only1刻印不会重复出现
+        only1_seen = set()  # 用于记录已经在组合中看到的 `only1` 系列的刻印
+        only1_duplicate = False
+        for i in combination:
+            if mintmark_classes[i] in only1_series:
+                if ids[i] in only1_seen:
+                    # 如果相同的 only1 刻印已经在组合中，则不允许再次出现
+                    only1_duplicate = True
+                    break
+                only1_seen.add(ids[i])
+        if only1_duplicate:
             continue
 
+        # 如果需要对称性，确保组合中恰好有两个相同的元素
         if symmetric:
-            # Ensure that there are exactly two identical elements in the combination
             if len(set(combination)) > 2:
                 continue
             if not any(count == 2 for count in class_counts.values()):
                 continue
 
+        # 检查属性目标是否符合要求
         valid_combination = all(
             target_min <= sum(attr_values_list[i][attr_index] for i in combination) <= target_max
             for attr_index, (target_min, target_max) in attribute_targets.items()
@@ -177,12 +188,12 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
             data_to_save.append([descriptions[i] for i in combination] + attr_values_sum + [total_sum])
 
     # 将初步组合保存到文件，增加"总和"列
-    columns = ["\u523b\u53701", "\u523b\u53702", "\u523b\u53703", "\u653b\u51fb", "\u9632\u5fa1", "\u7279\u653b",
-               "\u7279\u9632", "\u901f\u5ea6", "\u4f53\u529b", "\u603b\u548c"]
+    columns = ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]
     df = pd.DataFrame(data_to_save, columns=columns)
     df.to_csv(combinations_file, index=False, encoding='utf-8')
 
     return initial_combinations
+
 
 # 初步过滤刻印数据的方法
 def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None, filter_low_values=False,
