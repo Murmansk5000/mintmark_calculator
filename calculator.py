@@ -20,12 +20,12 @@ data_file = "data/mintmark_data.csv"
 json_file = "data/mintmark_data.json"
 combinations_file = "data/combinations_data.csv"
 only1_file = "data/only1.txt"
-result_file = "结果.csv"
+process_file = "data/process.csv"
 
 # 读取`only1.txt`中的系列id
 def load_only1_series():
     try:
-        with open(only1_file, 'r', encoding='utf-8') as f:
+        with open(only1_file, 'r', encoding='utf-8-sig') as f:
             only1_series = set(line.strip() for line in f if line.strip())
         return only1_series
     except FileNotFoundError:
@@ -52,7 +52,7 @@ def download_and_store_json():
         response = urllib.request.urlopen(req, timeout=10)
         mintmark_data = json.load(response)
 
-        with open(json_file, 'w', encoding='utf-8') as f:
+        with open(json_file, 'w', encoding='utf-8-sig') as f:
             json.dump(mintmark_data, f, ensure_ascii=False, indent=4)
         QMessageBox.information(None, "成功", f"MintMark JSON 数据已保存到文件 {json_file}")
     except urllib.error.URLError as e:
@@ -66,7 +66,7 @@ def download_and_store_json():
 def convert_json_to_csv():
     try:
         # 从 JSON 文件中加载数据
-        with open(json_file, 'r', encoding='utf-8') as f:
+        with open(json_file, 'r', encoding='utf-8-sig') as f:
             mintmark_data = json.load(f)
 
         # 提取 MintMarks 数据
@@ -74,7 +74,7 @@ def convert_json_to_csv():
         MintMark = MintMarks.get("MintMark", [])
 
         # 将数据保存到 CSV 文件（只保留 Type 为 3 的刻印，并去掉 Type 列，只保存总和列）
-        with open(data_file, 'w', newline='', encoding='utf-8') as csvfile:
+        with open(data_file, 'w', newline='', encoding='utf-8-sig') as csvfile:
             fieldnames = ["id", "quality", "description", "total_attr_value", "total_sum", "monster_id",
                           "mintmark_class"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -192,7 +192,7 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
     # 将初步组合保存到文件，增加"总和"列
     columns = ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]
     df = pd.DataFrame(data_to_save, columns=columns)
-    df.to_csv(combinations_file, index=False, encoding='utf-8')
+    df.to_csv(combinations_file, index=False, encoding='utf-8-sig')
 
     return initial_combinations
 
@@ -274,12 +274,12 @@ def validate_combinations(attribute_targets, attributes):
 
     # 尝试读取 combinations_file，如果文件不存在则返回空列表
     try:
-        df = pd.read_csv(combinations_file, encoding='utf-8')
+        df = pd.read_csv(combinations_file, encoding='utf-8-sig')
     except FileNotFoundError:
         return valid_combinations
 
-    # 打开 result.csv 文件以追加数据
-    with open(result_file, mode='a', newline='', encoding='utf-8') as file:
+    # 打开 process 文件以追加数据
+    with open(process_file, mode='a', newline='', encoding='utf-8-sig') as file:
         writer = csv.writer(file)
 
         # 检查文件是否为空，如果为空则写入头部
@@ -313,6 +313,14 @@ def validate_combinations(attribute_targets, attributes):
                 # 将有效的组合数据写入 result.csv 文件
                 writer.writerow(combination_data)
 
+    # 读取 CSV 文件，确保使用正确的编码
+    df = pd.read_csv(combinations_file, encoding='utf-8-sig')
+
+    # 指定要保存的 Excel 文件路径
+    excel_file = "结果.xlsx"
+
+    # 将 DataFrame 保存为 Excel 文件
+    df.to_excel(excel_file, index=False, engine='openpyxl')
     return valid_combinations
 
 
@@ -452,7 +460,7 @@ def create_gui():
 
         try:
             mintmark_list = []
-            with open(data_file, 'r', encoding='utf-8') as csvfile:
+            with open(data_file, 'r', encoding='utf-8-sig') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     mintmark_list.append(row)
