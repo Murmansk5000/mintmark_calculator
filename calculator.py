@@ -13,9 +13,17 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt
 import sys
 import pandas as pd
+import os
 
 
 # 定义用于存储刻印数据的 CSV 文件路径
+folder_path = "data"
+if not os.path.exists(folder_path):
+    os.makedirs(folder_path)
+    print(f"文件夹 '{folder_path}' 创建成功")
+else:
+    print(f"文件夹 '{folder_path}' 已存在")
+
 data_file = "data/mintmark_data.csv"
 json_file = "data/mintmark_data.json"
 combinations_file = "data/combinations_data.csv"
@@ -202,6 +210,14 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
                       total_sum_filter=None, attribute_targets=None, improve_efficiency=False, top_n=200):
     filtered_mintmark_list = []
     for row in mintmark_list:
+        # 如果用户提供了 monster_id_filter
+        if monster_id_filter:
+            # 如果刻印有 monster_id 且不等于用户输入的 monster_id_filter，则跳过该刻印
+            if row.get("monster_id") and row.get("monster_id") != monster_id_filter:
+                continue
+
+
+
         if row['quality'] == '5' and total_sum_filter:
             try:
                 total_sum = int(row['total_sum'])
@@ -214,12 +230,6 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
             except ValueError:
                 continue
 
-        if monster_id_filter:
-            if row.get("monster_id") != monster_id_filter:
-                continue
-        else:
-            if row.get("monster_id"):
-                continue
 
         if quality_filter and row["quality"] not in quality_filter:
             continue
@@ -328,7 +338,7 @@ def validate_combinations(attribute_targets, attributes):
 def create_gui():
     app = QApplication(sys.argv)
     window = QWidget()
-    window.setWindowTitle('刻印筛选工具')
+    window.setWindowTitle('刻印筛选工具 ——By 摩尔曼斯克')
     window.resize(1200, 800)  # 调大窗口尺寸
     layout = QVBoxLayout()
 
