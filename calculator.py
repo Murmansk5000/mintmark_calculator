@@ -19,6 +19,7 @@ data_file = "data/mintmark_data.csv"
 json_file = "data/mintmark_data.json"
 combinations_file = "data/combinations_data.csv"
 only1_file = "data/only1.txt"
+result_file = "结果.csv"
 
 # 读取`only1.txt`中的系列id
 def load_only1_series():
@@ -257,36 +258,50 @@ def filter_zero_requirements(mintmark_list, attribute_targets):
 # 验证刻印组合是否符合所有条件（从文件中读取）
 def validate_combinations(attribute_targets, attributes):
     valid_combinations = []
+
+    # 尝试读取 combinations_file，如果文件不存在则返回空列表
     try:
         df = pd.read_csv(combinations_file, encoding='utf-8')
     except FileNotFoundError:
         return valid_combinations
 
-    for _, row in df.iterrows():
-        valid = True
+    # 打开 result.csv 文件以追加数据
+    with open(result_file, mode='a', newline='', encoding='utf-8') as file:
+        writer = csv.writer(file)
 
-        # 确保最多只有两个刻印来自于同一个系列
-        class_counts = {}
-        for col in ["刻印1", "刻印2", "刻印3"]:
-            mintmark_class = row[col]
-            if mintmark_class not in class_counts:
-                class_counts[mintmark_class] = 0
-            class_counts[mintmark_class] += 1
-        if any(count > 2 for count in class_counts.values()):
-            continue
+        # 检查文件是否为空，如果为空则写入头部
+        file.seek(0, 2)  # 移动到文件末尾
+        if file.tell() == 0:  # 如果文件为空，则写入头部
+            writer.writerow(["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"])
 
-        for attr_index, (target_min, target_max) in attribute_targets.items():
-            total_value = row[attributes[attr_index]]
-            if not (target_min <= total_value <= target_max):
-                valid = False
-                break
+        for _, row in df.iterrows():
+            valid = True
 
-        if valid:
-            valid_combinations.append(
-                [row["刻印1"], row["刻印2"], row["刻印3"], row["攻击"], row["防御"], row["特攻"], row["特防"],
-                 row["速度"], row["体力"], row["总和"]])
+            # 确保最多只有两个刻印来自于同一个系列
+            class_counts = {}
+            for col in ["刻印1", "刻印2", "刻印3"]:
+                mintmark_class = row[col]
+                if mintmark_class not in class_counts:
+                    class_counts[mintmark_class] = 0
+                class_counts[mintmark_class] += 1
+
+            if any(count > 2 for count in class_counts.values()):
+                continue
+
+            for attr_index, (target_min, target_max) in attribute_targets.items():
+                total_value = row[attributes[attr_index]]
+                if not (target_min <= total_value <= target_max):
+                    valid = False
+                    break
+
+            if valid:
+                combination_data = [row[col] for col in ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]]
+                valid_combinations.append(combination_data)
+                # 将有效的组合数据写入 result.csv 文件
+                writer.writerow(combination_data)
 
     return valid_combinations
+
 
 # 创建 GUI
 def create_gui():
