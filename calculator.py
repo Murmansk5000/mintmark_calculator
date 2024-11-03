@@ -118,11 +118,13 @@ def convert_json_to_csv():
 
 # 实现添加总和列的功能
 # 在此阶段排除来自同一系列的三个刻印组合，并且确保only1系列的刻印最多只有一个
-def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=False):
+def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=False, use_only1=False):
     ids, descriptions, mintmark_classes, attr_values_list = [], [], [], []
 
+    only1_series = []
     # 加载限制的系列id
-    only1_series = load_only1_series()  # 加载`only1`系列的ID集，用于后续判断
+    if use_only1:
+        only1_series = load_only1_series()  # 加载`only1`系列的ID集，用于后续判断
 
     # 遍历 filtered_mintmark_list 提取每个刻印的属性
     for mintmark in filtered_mintmark_list:
@@ -359,6 +361,10 @@ def create_gui():
     symmetric_checkbox = QCheckBox("对称")
     form_layout.addRow(symmetric_checkbox)
 
+    only1_checkbox = QCheckBox("限一刻印验证")  # 新增复选框，默认选中
+    only1_checkbox.setChecked(True)
+    form_layout.addRow(only1_checkbox)
+
     improve_efficiency_layout = QHBoxLayout()
     improve_efficiency_checkbox = QCheckBox("提升效率【可能会缺失刻印】")
     improve_efficiency_checkbox.setChecked(True)
@@ -433,6 +439,7 @@ def create_gui():
 
         monster_id = monster_id_field.text().strip()
         symmetric = symmetric_checkbox.isChecked()
+        use_only1 = only1_checkbox.isChecked()  # 获取only1复选框状态
         improve_efficiency = improve_efficiency_checkbox.isChecked()
         filter_low_values = filter_low_values_checkbox.isChecked()
         quality_filter = [value for value, checkbox in quality_checkboxes.items() if checkbox.isChecked()]
@@ -459,7 +466,7 @@ def create_gui():
                                                    total_sum_filter=total_sum_filter, attribute_targets=attribute_targets,
                                                    improve_efficiency=improve_efficiency, top_n=top_n)
         filtered_mintmark_list = filter_zero_requirements(filtered_mintmark_list, attribute_targets)
-        find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=symmetric)
+        find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=symmetric, use_only1=use_only1)
         valid_combinations = validate_combinations(attribute_targets, attributes)
 
         if valid_combinations:
