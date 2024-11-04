@@ -233,18 +233,33 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
         # 获取当前刻印的 monster_id
         monster_id = row.get("monster_id")
 
-        # 处理刻印有 monster_id 的情况
+        # 如果这个刻印是专属刻印
         if monster_id:
-            # 如果用户提供了 monster_id_filter
-            if monster_id_filter:
-                # 如果刻印的 monster_id 与用户输入不匹配，删除刻印（跳过）
-                if monster_id != monster_id_filter:
-                    continue
-            # 如果该 monster_id 已经被使用过，跳过该刻印
+            # 如果用户没有输入monster_id，跳过
+            if monster_id_filter is None:
+                continue
+            # 如果刻印的 monster_id 与用户输入不匹配，跳过
+            if monster_id != monster_id_filter:
+                continue
+            # 如果该 monster_id 已经被使用过，跳过
             if monster_id in used_monster_ids:
                 continue
             # 记录使用过的专属刻印
             used_monster_ids.add(monster_id)
+
+
+
+        if row['quality'] == '5' and total_sum_filter:
+            try:
+                total_sum = int(row['total_sum'])
+                if not any([
+                    ('>220' in total_sum_filter and total_sum > 220),
+                    ('=220' in total_sum_filter and total_sum == 220),
+                    ('<220' in total_sum_filter and total_sum < 220)
+                ]):
+                    continue
+            except ValueError:
+                continue
 
         # 质量过滤
         if quality_filter and row["quality"] not in quality_filter:
