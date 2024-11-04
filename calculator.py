@@ -230,19 +230,21 @@ def initial_filtering(mintmark_list, monster_id_filter=None, quality_filter=None
     used_monster_ids = set()  # 用于记录已经使用过的专属刻印
 
     for row in mintmark_list:
-        # 如果用户提供了 monster_id_filter
-        if monster_id_filter:
-            # 如果刻印有 monster_id 且不等于用户输入的 monster_id_filter，则跳过该刻印
-            if row.get("monster_id") and row.get("monster_id") != monster_id_filter:
-                continue
-
-        # 如果刻印有 monster_id（专属刻印），检查它是否已经被使用过
+        # 获取当前刻印的 monster_id
         monster_id = row.get("monster_id")
+
+        # 处理刻印有 monster_id 的情况
         if monster_id:
+            # 如果用户提供了 monster_id_filter
+            if monster_id_filter:
+                # 如果刻印的 monster_id 与用户输入不匹配，删除刻印（跳过）
+                if monster_id != monster_id_filter:
+                    continue
+            # 如果该 monster_id 已经被使用过，跳过该刻印
             if monster_id in used_monster_ids:
-                continue  # 该专属刻印已被使用过，跳过该刻印
-            else:
-                used_monster_ids.add(monster_id)  # 记录使用过的专属刻印
+                continue
+            # 记录使用过的专属刻印
+            used_monster_ids.add(monster_id)
 
         # 质量过滤
         if quality_filter and row["quality"] not in quality_filter:
