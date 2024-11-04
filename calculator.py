@@ -39,11 +39,14 @@ only1_file = "data/only1.txt"
 process_file = "data/process.csv"
 
 # 将内容写入txt文件，每个数字占一行
-with open(only1_file, 'w') as file:
-    for line in content:
-        file.write(line + "\n")
+if not os.path.exists(only1_file):
+    with open(only1_file, 'w') as file:
+        for line in content:
+            file.write(line + "\n")
+    print(f"文件 '{only1_file}' 创建成功并写入内容。")
+else:
+    print(f"文件 '{only1_file}' 已存在，未修改。")
 
-print(f"文件 '{only1_file}' 创建成功并写入内容。")
 
 # 读取`only1.txt`中的系列id
 def load_only1_series():
