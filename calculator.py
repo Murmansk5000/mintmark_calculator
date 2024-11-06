@@ -182,17 +182,14 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
             continue
 
         # 确保only1系列的刻印最多只有一个，并且相同的only1刻印不会重复出现
-        only1_seen = set()  # 用于记录已经在组合中看到的 `only1` 系列的刻印
-        only1_duplicate = False
-        for i in combination:
-            if mintmark_classes[i] in only1_series:
-                if ids[i] in only1_seen:
-                    # 如果相同的 only1 刻印已经在组合中，则不允许再次出现
-                    only1_duplicate = True
-                    break
-                only1_seen.add(ids[i])
-        if only1_duplicate:
-            continue
+        if use_only1:
+            # 统计组合中来自only1系列的刻印数量
+            only1_series_ids_in_combination = [mintmark_classes[i] for i in combination if
+                                               mintmark_classes[i] in only1_series]
+
+            # 如果存在重复的“限1系列”刻印，跳过该组合
+            if len(only1_series_ids_in_combination) != len(set(only1_series_ids_in_combination)):
+                continue
 
         # 如果需要对称性，确保组合中恰好有两个相同的元素
         if symmetric:
