@@ -22,6 +22,8 @@ JSON_FILE = os.path.join(FOLDER_PATH, "mintmark_data.json")
 COMBINATIONS_FILE = os.path.join(FOLDER_PATH, "combinations_data.csv")
 ONLY1_MINTMARK_CLASS_FILE = os.path.join(FOLDER_PATH, "only1_mintmark_class.txt")
 ONLY1_MINTMARK_IDS_FILE = os.path.join(FOLDER_PATH, "only1_mintmark_ids.txt")
+
+MISSING_MINTMARK_IDS_FILE = os.path.join(FOLDER_PATH, "missing_mintmark_ids.txt") # 用户没有这个刻印
 PROCESS_FILE = os.path.join(FOLDER_PATH, "process.csv")
 
 # 创建数据文件夹
@@ -55,9 +57,13 @@ def load_only1_mintmark_class():
 # 加载限1刻印的系列 id
 only1_mintmark_class = load_only1_mintmark_class()
 
-
-
-
+# 加载用户没有的刻印 id
+def load_missing_mintmark_ids():
+    try:
+        with open(MISSING_MINTMARK_IDS_FILE, 'r', encoding='utf-8-sig') as f:
+            return set(line.strip() for line in f if line.strip())
+    except FileNotFoundError:
+        return set()  # 如果文件不存在，返回一个空集合
 
 
 # 下载并保存 JSON 数据的方法
@@ -91,23 +97,37 @@ def download_and_store_json():
         print(f"发生未知错误: {e}")
 
 # 更新 JSON 数据为 CSV 文件的方法
+# 更新 JSON 数据为 CSV 文件的方法
 def convert_json_to_csv():
     try:
+        # 加载用户缺失的刻印 ID
+        missing_mintmark_ids = load_missing_mintmark_ids()  # 加载缺失的刻印 ID
+
+        # 打开 JSON 文件读取数据
         with open(JSON_FILE, 'r', encoding='utf-8-sig') as f:
             mintmark_data = json.load(f)
 
         MintMarks = mintmark_data.get("MintMarks", {})
         MintMark = MintMarks.get("MintMark", [])
 
+        # 写入到 CSV 文件
         with open(DATA_FILE, 'w', newline='', encoding='utf-8-sig') as csvfile:
-            fieldnames = ["id", "quality", "description", "total_attr_value", "total_sum", "monster_id", "mintmark_class"]
+            fieldnames = ["id", "quality", "description", "total_attr_value", "total_sum", "monster_id",
+                          "mintmark_class"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
+
             for mintmark in MintMark:
                 try:
                     if mintmark.get("Type", 0) != 3:
                         continue
+
+                    # 获取刻印的 ID
                     id = mintmark.get("ID", 0)
+                    id_str = str(id)
+                    # 如果该刻印在缺失 ID 列表中，跳过
+                    if id_str in missing_mintmark_ids:
+                        continue
                     quality = mintmark.get("Quality", 0)
                     description = mintmark.get("Des", "")
                     monster_id = mintmark.get("MonsterID", "")
@@ -116,7 +136,8 @@ def convert_json_to_csv():
                     max_attr_value = mintmark.get("MaxAttriValue", "")
                     extra_attr_value = mintmark.get("ExtraAttriValue", "")
                     max_values = [int(num) for num in max_attr_value.split()]
-                    extra_values = [int(num) for num in extra_attr_value.split()] if extra_attr_value else [0] * len(max_values)
+                    extra_values = [int(num) for num in extra_attr_value.split()] if extra_attr_value else [0] * len(
+                        max_values)
                     total_values = [max_val + extra_val for max_val, extra_val in zip(max_values, extra_values)]
                     total_attr_value = " ".join(map(str, total_values))
                     total_sum = sum(total_values)
@@ -193,6 +214,17 @@ def generate_only1_mintmark_ids():
                 print("没有匹配到任何限1刻印的数据。")
     else:
         print(f"文件 '{DATA_FILE}' 不存在，请检查路径。")
+
+# 创建缺失的刻印 ID 文件
+def create_missing_mintmark_ids_file():
+    if not os.path.exists(MISSING_MINTMARK_IDS_FILE):
+        with open(MISSING_MINTMARK_IDS_FILE, 'w', encoding='utf-8') as file:
+            file.write("# 请输入您没有的刻印 ID，每个 ID 占一行。\n")
+        print(f"文件 '{MISSING_MINTMARK_IDS_FILE}' 已创建。")
+    else:
+        print(f"文件 '{MISSING_MINTMARK_IDS_FILE}' 已存在。")
+
+
 
 
 # 实现添加总和列的功能
@@ -623,7 +655,9 @@ def create_gui():
     window.show()
     sys.exit(app.exec_())
 
+
 if __name__ == "__main__":
-    ensure_data_prepared()
-    generate_only1_mintmark_ids()
-    create_gui()
+    ensure_data_prepared()  # 确保 JSON 和 CSV 数据已准备好
+    create_missing_mintmark_ids_file()  # 创建缺失刻印 ID 文件
+    generate_only1_mintmark_ids()  # 生成限1刻印的 ID 文件
+    create_gui()  # 启动 GUI 应用程序
