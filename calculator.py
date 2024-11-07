@@ -26,6 +26,8 @@ ONLY1_MINTMARK_IDS_FILE = os.path.join(FOLDER_PATH, "only1_mintmark_ids.txt")
 MISSING_MINTMARK_IDS_FILE = os.path.join(FOLDER_PATH, "missing_mintmark_ids.txt") # 用户没有这个刻印
 PROCESS_FILE = os.path.join(FOLDER_PATH, "process.csv")
 
+excel_file = "结果.xlsx"
+
 # 创建数据文件夹
 os.makedirs(FOLDER_PATH, exist_ok=True)
 
@@ -219,10 +221,10 @@ def generate_only1_mintmark_ids():
 def create_missing_mintmark_ids_file():
     if not os.path.exists(MISSING_MINTMARK_IDS_FILE):
         with open(MISSING_MINTMARK_IDS_FILE, 'w', encoding='utf-8') as file:
-            file.write("# 请输入您没有的刻印 ID，每个 ID 占一行。\n")
+            file.write("# 请输入您没有的刻印 ID，每个 ID 占一行，并且在输入之后点击“更新刻印文件”按钮。\n")
         print(f"文件 '{MISSING_MINTMARK_IDS_FILE}' 已创建。")
     else:
-        print(f"文件 '{MISSING_MINTMARK_IDS_FILE}' 已存在。")
+        print(f"文件 '{MISSING_MINTMARK_IDS_FILE}' 已存在，未修改。")
 
 
 
@@ -306,7 +308,7 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
             data_to_save.append([descriptions[i] for i in combination] + attr_values_sum + [total_sum])
 
     # 将初步组合保存到文件，增加"总和"列
-    columns = ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]
+    columns = ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "选项总和"]
     df = pd.DataFrame(data_to_save, columns=columns)
     df.to_csv(COMBINATIONS_FILE, index=False, encoding='utf-8-sig')
 
@@ -419,7 +421,7 @@ def validate_combinations(attribute_targets, attributes):
         # 检查文件是否为空，如果为空则写入头部
         file.seek(0, 2)  # 移动到文件末尾
         if file.tell() == 0:  # 如果文件为空，则写入头部
-            writer.writerow(["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"])
+            writer.writerow(["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "选项总和"])
 
         for _, row in df.iterrows():
             valid = True
@@ -442,7 +444,7 @@ def validate_combinations(attribute_targets, attributes):
                     break
 
             if valid:
-                combination_data = [row[col] for col in ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]]
+                combination_data = [row[col] for col in ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "选项总和"]]
                 valid_combinations.append(combination_data)
                 # 将有效的组合数据写入 result.csv 文件
                 writer.writerow(combination_data)
@@ -450,8 +452,7 @@ def validate_combinations(attribute_targets, attributes):
     # 读取 CSV 文件，确保使用正确的编码
     df = pd.read_csv(COMBINATIONS_FILE, encoding='utf-8-sig')
 
-    # 指定要保存的 Excel 文件路径
-    excel_file = "结果.xlsx"
+
 
     # 将 DataFrame 保存为 Excel 文件
     df.to_excel(excel_file, index=False, engine='openpyxl')
@@ -544,7 +545,7 @@ def create_gui():
     top_n_field = QLineEdit()
     top_n_field.setText("200")
     top_n_field.setFixedWidth(50)
-    improve_efficiency_layout.addWidget(QLabel("只选择总和位次前"))
+    improve_efficiency_layout.addWidget(QLabel("只选择5项总和位次前"))
     improve_efficiency_layout.addWidget(top_n_field)
     improve_efficiency_layout.addWidget(QLabel("的刻印"))
 
@@ -584,7 +585,7 @@ def create_gui():
     result_table = QTableWidget()
     result_table.setColumnCount(10)
     result_table.setHorizontalHeaderLabels(
-        ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]
+        ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "选项总和"]
     )
 
     def on_filter_button_clicked():
