@@ -221,7 +221,7 @@ def generate_only1_mintmark_ids():
 def create_missing_mintmark_ids_file():
     if not os.path.exists(MISSING_MINTMARK_IDS_FILE):
         with open(MISSING_MINTMARK_IDS_FILE, 'w', encoding='utf-8') as file:
-            file.write("# 请输入您没有的刻印 ID，每个 ID 占一行，并且在输入之后点击“更新刻印文件”按钮。\n")
+            file.write("# 请输入您没有（或者不想用）的刻印 ID，每个 ID 占一行。并且在输入之后点击“更新刻印文件”按钮。\n")
         print(f"文件 '{MISSING_MINTMARK_IDS_FILE}' 已创建。")
     else:
         print(f"文件 '{MISSING_MINTMARK_IDS_FILE}' 已存在，未修改。")
