@@ -8,59 +8,89 @@ from itertools import combinations_with_replacement
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QFormLayout,
     QLineEdit, QPushButton, QTableWidget, QTableWidgetItem, QLabel, QCheckBox, QHBoxLayout,
-    QMessageBox,QSpacerItem, QSizePolicy
+    QMessageBox, QSpacerItem, QSizePolicy
 )
 from PyQt5.QtCore import Qt
 import sys
 import pandas as pd
 import os
 
+# 定义用于存储刻印数据的文件路径
+FOLDER_PATH = "data"
+DATA_FILE = os.path.join(FOLDER_PATH, "mintmark_data.csv")
+JSON_FILE = os.path.join(FOLDER_PATH, "mintmark_data.json")
+COMBINATIONS_FILE = os.path.join(FOLDER_PATH, "combinations_data.csv")
+ONLY1_MINTMARK_CLASS_FILE = os.path.join(FOLDER_PATH, "only1_mintmark_class.txt")
+ONLY1_MINTMARK_IDS_FILE = os.path.join(FOLDER_PATH, "only1_mintmark_ids.txt")
+PROCESS_FILE = os.path.join(FOLDER_PATH, "process.csv")
 
-# 定义用于存储刻印数据的 CSV 文件路径
-folder_path = "data"
-if not os.path.exists(folder_path):
-    os.makedirs(folder_path)
-    print(f"文件夹 '{folder_path}' 创建成功")
-else:
-    print(f"文件夹 '{folder_path}' 已存在")
+# 创建数据文件夹
+os.makedirs(FOLDER_PATH, exist_ok=True)
 
-
-
-# 限1刻印的系列id，例如65是“精灵王誓约”
+# 限1刻印的系列id，例如65是"精灵王誓约"
 content = [
     "57", "61", "65", "66", "67", "74", "75", "78", "80", "83", "84", "85"
 ]
 
-
-data_file = "data/mintmark_data.csv"
-json_file = "data/mintmark_data.json"
-combinations_file = "data/combinations_data.csv"
-only1_file = "data/only1.txt"
-process_file = "data/process.csv"
-
 # 将内容写入txt文件，每个数字占一行
-if not os.path.exists(only1_file):
-    with open(only1_file, 'w') as file:
-        for line in content:
-            file.write(line + "\n")
-    print(f"文件 '{only1_file}' 创建成功并写入内容。")
-else:
-    print(f"文件 '{only1_file}' 已存在，未修改。")
+def write_content_to_file(file_path, content):
+    if not os.path.exists(file_path):
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write("\n".join(content) + "\n")
+        print(f"文件 '{file_path}' 创建成功并写入内容。")
+    else:
+        print(f"文件 '{file_path}' 已存在，未修改。")
 
+write_content_to_file(ONLY1_MINTMARK_CLASS_FILE, content)
 
-# 读取`only1.txt`中的系列id
-def load_only1_series():
+# 读取 `only1_mintmark_class.txt` 中的系列 id
+def load_only1_mintmark_class():
     try:
-        with open(only1_file, 'r', encoding='utf-8-sig') as f:
-            only1_series = set(line.strip() for line in f if line.strip())
-        return only1_series
+        with open(ONLY1_MINTMARK_CLASS_FILE, 'r', encoding='utf-8-sig') as f:
+            only1_mintmark_class = set(line.strip() for line in f if line.strip())
+        return only1_mintmark_class
     except FileNotFoundError:
         return set()
+
+# 加载限1刻印的系列 id
+only1_mintmark_class = load_only1_mintmark_class()
+
+# 读取 csv 文件并生成限1刻印的 id 文件
+if os.path.exists(DATA_FILE):
+    with open(DATA_FILE, 'r', encoding='utf-8-sig') as csvfile:
+        reader = csv.DictReader(csvfile)
+        filtered_rows = []
+
+        # 过滤 mintmark_class 在限1刻印系列中的行
+        for row in reader:
+            if row['mintmark_class'] in only1_mintmark_class:
+                filtered_rows.append(row['id'])
+
+        # 写入到新的 txt 文件，每行一个 id
+        if filtered_rows:
+            if not os.path.exists(ONLY1_MINTMARK_IDS_FILE):
+                with open(ONLY1_MINTMARK_IDS_FILE, 'w', newline='', encoding='utf-8-sig') as txtfile:
+                    for row_id in filtered_rows:
+                        txtfile.write(row_id + "\n")
+                print(f"文件 '{ONLY1_MINTMARK_IDS_FILE}' 创建成功并写入限1刻印的 id 数据。")
+            else:
+                print(f"文件 '{ONLY1_MINTMARK_IDS_FILE}' 已存在，未修改。")
+        else:
+            print("没有匹配到任何限1刻印的数据。")
+else:
+    print(f"文件 '{DATA_FILE}' 不存在，请检查路径。")
+
+# 加载限1刻印的 id
+def load_only1_mintmark_ids():
+    try:
+        with open(ONLY1_MINTMARK_IDS_FILE, 'r', encoding='utf-8-sig') as f:
+            return [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        return []
 
 # 下载并保存 JSON 数据的方法
 def download_and_store_json():
     try:
-        # 添加请求头
         headers = {'User-Agent': 'Mozilla/5.0'}
         version_url = "http://seerh5.61.com/version/version.json"
         req = urllib.request.Request(version_url, headers=headers)
@@ -78,31 +108,27 @@ def download_and_store_json():
         response = urllib.request.urlopen(req, timeout=10)
         mintmark_data = json.load(response)
 
-        with open(json_file, 'w', encoding='utf-8-sig') as f:
+        with open(JSON_FILE, 'w', encoding='utf-8-sig') as f:
             json.dump(mintmark_data, f, ensure_ascii=False, indent=4)
-        QMessageBox.information(None, "成功", f"MintMark JSON 数据已保存到文件 {json_file}")
+        print(f"MintMark JSON 数据已保存到文件 {JSON_FILE}")
     except urllib.error.URLError as e:
-        QMessageBox.critical(None, "网络错误", f"网络错误：{e}")
+        print(f"网络错误：{e}")
     except json.JSONDecodeError as e:
-        QMessageBox.critical(None, "JSON 解析错误", f"JSON 解析错误：{e}")
+        print(f"JSON 解析错误：{e}")
     except Exception as e:
-        QMessageBox.critical(None, "未知错误", f"发生未知错误: {e}")
+        print(f"发生未知错误: {e}")
 
 # 更新 JSON 数据为 CSV 文件的方法
 def convert_json_to_csv():
     try:
-        # 从 JSON 文件中加载数据
-        with open(json_file, 'r', encoding='utf-8-sig') as f:
+        with open(JSON_FILE, 'r', encoding='utf-8-sig') as f:
             mintmark_data = json.load(f)
 
-        # 提取 MintMarks 数据
         MintMarks = mintmark_data.get("MintMarks", {})
         MintMark = MintMarks.get("MintMark", [])
 
-        # 将数据保存到 CSV 文件（只保留 Type 为 3 的刻印，并去掉 Type 列，只保存总和列）
-        with open(data_file, 'w', newline='', encoding='utf-8-sig') as csvfile:
-            fieldnames = ["id", "quality", "description", "total_attr_value", "total_sum", "monster_id",
-                          "mintmark_class"]
+        with open(DATA_FILE, 'w', newline='', encoding='utf-8-sig') as csvfile:
+            fieldnames = ["id", "quality", "description", "total_attr_value", "total_sum", "monster_id", "mintmark_class"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             for mintmark in MintMark:
@@ -115,16 +141,12 @@ def convert_json_to_csv():
                     monster_id = mintmark.get("MonsterID", "")
                     mintmark_class = mintmark.get("MintmarkClass", "")
 
-                    # 计算 MaxAttriValue 和 ExtraAttriValue 的加和
                     max_attr_value = mintmark.get("MaxAttriValue", "")
                     extra_attr_value = mintmark.get("ExtraAttriValue", "")
                     max_values = [int(num) for num in max_attr_value.split()]
-                    extra_values = [int(num) for num in extra_attr_value.split()] if extra_attr_value else [0] * len(
-                        max_values)
+                    extra_values = [int(num) for num in extra_attr_value.split()] if extra_attr_value else [0] * len(max_values)
                     total_values = [max_val + extra_val for max_val, extra_val in zip(max_values, extra_values)]
                     total_attr_value = " ".join(map(str, total_values))
-
-                    # 计算 total_attr_value 列中所有数值的总和
                     total_sum = sum(total_values)
 
                     writer.writerow({
@@ -138,19 +160,19 @@ def convert_json_to_csv():
                     })
                 except (KeyError, ValueError):
                     continue
-        QMessageBox.information(None, "成功", f"MintMark 数据已保存到文件 {data_file}")
-    except Exception as e:
-        QMessageBox.critical(None, "错误", f"转换 JSON 数据到 CSV 时发生错误: {e}")
 
+        print(f"MintMark 数据已保存到文件 {DATA_FILE}")
+    except Exception as e:
+        print(f"转换 JSON 数据到 CSV 时发生错误: {e}")
 # 实现添加总和列的功能
 # 在此阶段排除来自同一系列的三个刻印组合，并且确保only1系列的刻印最多只有一个
 def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=False, use_only1=False):
     ids, descriptions, mintmark_classes, attr_values_list = [], [], [], []
 
-    only1_series = []
+    only1_ids = []
     # 加载限制的系列id
     if use_only1:
-        only1_series = load_only1_series()  # 加载`only1`系列的ID集，用于后续判断
+        only1_ids = load_only1_mintmark_ids()  # 加载`only1`系列的ID集，用于后续判断
 
     # 遍历 filtered_mintmark_list 提取每个刻印的属性
     for mintmark in filtered_mintmark_list:
@@ -181,14 +203,10 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
         if len(set([mintmark_classes[i] for i in combination])) == 1:
             continue
 
-        # 确保only1系列的刻印最多只有一个，并且相同的only1刻印不会重复出现
+        # 确保相同的only1刻印不会重复出现
         if use_only1:
-            # 统计组合中来自only1系列的刻印数量
-            only1_series_ids_in_combination = [mintmark_classes[i] for i in combination if
-                                               mintmark_classes[i] in only1_series]
-
-            # 如果存在重复的“限1系列”刻印，跳过该组合
-            if len(only1_series_ids_in_combination) != len(set(only1_series_ids_in_combination)):
+            unique_ids = set(ids[i] for i in combination)
+            if len(unique_ids) < len(combination):
                 continue
 
         # 如果需要对称性，确保组合中恰好有两个相同的元素
@@ -215,7 +233,7 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
     # 将初步组合保存到文件，增加"总和"列
     columns = ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]
     df = pd.DataFrame(data_to_save, columns=columns)
-    df.to_csv(combinations_file, index=False, encoding='utf-8-sig')
+    df.to_csv(COMBINATIONS_FILE, index=False, encoding='utf-8-sig')
 
     return initial_combinations
 
@@ -315,12 +333,12 @@ def validate_combinations(attribute_targets, attributes):
 
     # 尝试读取 combinations_file，如果文件不存在则返回空列表
     try:
-        df = pd.read_csv(combinations_file, encoding='utf-8-sig')
+        df = pd.read_csv(COMBINATIONS_FILE, encoding='utf-8-sig')
     except FileNotFoundError:
         return valid_combinations
 
     # 打开 process 文件以追加数据
-    with open(process_file, mode='a', newline='', encoding='utf-8-sig') as file:
+    with open(PROCESS_FILE, mode='a', newline='', encoding='utf-8-sig') as file:
         writer = csv.writer(file)
 
         # 检查文件是否为空，如果为空则写入头部
@@ -355,7 +373,7 @@ def validate_combinations(attribute_targets, attributes):
                 writer.writerow(combination_data)
 
     # 读取 CSV 文件，确保使用正确的编码
-    df = pd.read_csv(combinations_file, encoding='utf-8-sig')
+    df = pd.read_csv(COMBINATIONS_FILE, encoding='utf-8-sig')
 
     # 指定要保存的 Excel 文件路径
     excel_file = "结果.xlsx"
@@ -364,13 +382,42 @@ def validate_combinations(attribute_targets, attributes):
     df.to_excel(excel_file, index=False, engine='openpyxl')
     return valid_combinations
 
+#
+# # 生成组合并写入 CSV 文件
+# def generate_combinations_and_write_to_file(content, combinations_file):
+#     if not os.path.exists(combinations_file):
+#         combinations = list(combinations_with_replacement(content, 2))
+#         with open(combinations_file, 'w', encoding='utf-8', newline='') as csvfile:
+#             writer = csv.writer(csvfile)
+#             writer.writerow(["combination_1", "combination_2"])
+#             writer.writerows(combinations)
+#         print(f"文件 '{combinations_file}' 创建成功并写入组合数据。")
+#     else:
+#         print(f"文件 '{combinations_file}' 已存在，未修改。")
+#
+# # 生成并保存组合
+# generate_combinations_and_write_to_file(content, COMBINATIONS_FILE)
+#
+#
+# # 处理并写入 JSON 文件
+# def process_and_write_json(data_file, json_file):
+#     if os.path.exists(data_file):
+#         df = pd.read_csv(data_file, encoding='utf-8-sig')
+#         df_filtered = df[df['mintmark_class'].isin(only1_mintmark_class)]
+#         df_filtered.to_json(json_file, orient='records', force_ascii=False)
+#         print(f"文件 '{json_file}' 创建成功并写入过滤后的数据。")
+#     else:
+#         print(f"文件 '{data_file}' 不存在，请检查路径。")
+#
+# # 处理并保存 JSON 文件
+# process_and_write_json(DATA_FILE, JSON_FILE)
 
 # 创建 GUI
 def create_gui():
     app = QApplication(sys.argv)
     window = QWidget()
     window.setWindowTitle('刻印筛选工具 ——By 摩尔曼斯克')
-    window.resize(1200, 800)  # 调大窗口尺寸
+    window.resize(1080, 800)
     layout = QVBoxLayout()
 
     form_layout = QFormLayout()
@@ -410,7 +457,7 @@ def create_gui():
     symmetric_checkbox = QCheckBox("对称")
     form_layout.addRow(symmetric_checkbox)
 
-    only1_checkbox = QCheckBox("限一刻印验证")  # 新增复选框，默认选中
+    only1_checkbox = QCheckBox("限1刻印验证")
     only1_checkbox.setChecked(True)
     form_layout.addRow(only1_checkbox)
 
@@ -426,7 +473,6 @@ def create_gui():
     improve_efficiency_layout.addWidget(top_n_field)
     improve_efficiency_layout.addWidget(QLabel("的刻印"))
 
-    # 添加一个弹性空间，将控件推到左边
     spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
     improve_efficiency_layout.addItem(spacer)
     form_layout.addRow(improve_efficiency_layout)
@@ -444,7 +490,7 @@ def create_gui():
             checkbox.setChecked(True)
         quality_row_layout.addWidget(checkbox)
         quality_checkboxes[value] = checkbox
-    form_layout.addRow(QLabel('选择刻印质量:'), quality_row_layout)
+    form_layout.addRow(QLabel('选择刻印类别:'), quality_row_layout)
 
     total_sum_checkboxes = {}
     total_sum_conditions = {'大于220': '>220', '等于220': '=220', '小于220': '<220'}
@@ -455,13 +501,13 @@ def create_gui():
             checkbox.setChecked(True)
         total_sum_row_layout.addWidget(checkbox)
         total_sum_checkboxes[value] = checkbox
-    form_layout.addRow(QLabel('选择总和条件（仅对5角刻印）:'), total_sum_row_layout)
+    form_layout.addRow(QLabel('5项总和条件（仅对5角刻印）:'), total_sum_row_layout)
 
     filter_button = QPushButton('筛选刻印组合')
     download_button = QPushButton('下载刻印数据')
     update_button = QPushButton('更新刻印文件')
     result_table = QTableWidget()
-    result_table.setColumnCount(10)  # 原来是9，现在增加一列
+    result_table.setColumnCount(10)
     result_table.setHorizontalHeaderLabels(
         ["刻印1", "刻印2", "刻印3", "攻击", "防御", "特攻", "特防", "速度", "体力", "总和"]
     )
@@ -488,7 +534,7 @@ def create_gui():
 
         monster_id = monster_id_field.text().strip()
         symmetric = symmetric_checkbox.isChecked()
-        use_only1 = only1_checkbox.isChecked()  # 获取only1复选框状态
+        use_only1 = only1_checkbox.isChecked()
         improve_efficiency = improve_efficiency_checkbox.isChecked()
         filter_low_values = filter_low_values_checkbox.isChecked()
         quality_filter = [value for value, checkbox in quality_checkboxes.items() if checkbox.isChecked()]
@@ -501,12 +547,12 @@ def create_gui():
 
         try:
             mintmark_list = []
-            with open(data_file, 'r', encoding='utf-8-sig') as csvfile:
+            with open(DATA_FILE, 'r', encoding='utf-8-sig') as csvfile:
                 reader = csv.DictReader(csvfile)
                 for row in reader:
                     mintmark_list.append(row)
         except FileNotFoundError:
-            QMessageBox.critical(window, "错误", f"文件 {data_file} 未找到，请先下载数据。")
+            QMessageBox.critical(window, "错误", f"文件 {DATA_FILE} 未找到，请先下载数据。")
             return
 
         # 调用初步过滤和验证的方法，这些可以根据需要进一步完善
@@ -542,7 +588,6 @@ def create_gui():
     window.setLayout(layout)
     window.show()
     sys.exit(app.exec_())
-
 
 if __name__ == "__main__":
     create_gui()
