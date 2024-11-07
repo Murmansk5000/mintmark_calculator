@@ -55,38 +55,10 @@ def load_only1_mintmark_class():
 # 加载限1刻印的系列 id
 only1_mintmark_class = load_only1_mintmark_class()
 
-# 读取 csv 文件并生成限1刻印的 id 文件
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, 'r', encoding='utf-8-sig') as csvfile:
-        reader = csv.DictReader(csvfile)
-        filtered_rows = []
 
-        # 过滤 mintmark_class 在限1刻印系列中的行
-        for row in reader:
-            if row['mintmark_class'] in only1_mintmark_class:
-                filtered_rows.append(row['id'])
 
-        # 写入到新的 txt 文件，每行一个 id
-        if filtered_rows:
-            if not os.path.exists(ONLY1_MINTMARK_IDS_FILE):
-                with open(ONLY1_MINTMARK_IDS_FILE, 'w', newline='', encoding='utf-8-sig') as txtfile:
-                    for row_id in filtered_rows:
-                        txtfile.write(row_id + "\n")
-                print(f"文件 '{ONLY1_MINTMARK_IDS_FILE}' 创建成功并写入限1刻印的 id 数据。")
-            else:
-                print(f"文件 '{ONLY1_MINTMARK_IDS_FILE}' 已存在，未修改。")
-        else:
-            print("没有匹配到任何限1刻印的数据。")
-else:
-    print(f"文件 '{DATA_FILE}' 不存在，请检查路径。")
 
-# 加载限1刻印的 id
-def load_only1_mintmark_ids():
-    try:
-        with open(ONLY1_MINTMARK_IDS_FILE, 'r', encoding='utf-8-sig') as f:
-            return [line.strip() for line in f if line.strip()]
-    except FileNotFoundError:
-        return []
+
 
 # 下载并保存 JSON 数据的方法
 def download_and_store_json():
@@ -164,6 +136,65 @@ def convert_json_to_csv():
         print(f"MintMark 数据已保存到文件 {DATA_FILE}")
     except Exception as e:
         print(f"转换 JSON 数据到 CSV 时发生错误: {e}")
+
+def ensure_data_prepared():
+    """
+    确保 JSON 数据已经下载并且成功转换为 CSV。
+    """
+    # 检查 JSON 文件是否存在，如果不存在则下载数据
+    if not os.path.exists(JSON_FILE):
+        print("JSON 文件不存在，正在下载 JSON 数据...")
+        download_and_store_json()
+
+    # 检查 CSV 文件是否存在，如果 JSON 已存在但 CSV 未生成，则生成 CSV
+    if os.path.exists(JSON_FILE) and not os.path.exists(DATA_FILE):
+        print("CSV 文件不存在，从 JSON 生成 CSV 文件...")
+        convert_json_to_csv()
+
+
+
+# 加载限1刻印的 id
+def load_only1_mintmark_ids():
+    # 确保数据已经被下载和准备
+    ensure_data_prepared()
+
+    try:
+        with open(ONLY1_MINTMARK_IDS_FILE, 'r', encoding='utf-8-sig') as f:
+            return [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        return []
+
+
+# 读取 csv 文件并生成限1刻印的 id 文件
+def generate_only1_mintmark_ids():
+    # 确保数据已经被下载和准备
+    ensure_data_prepared()
+
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, 'r', encoding='utf-8-sig') as csvfile:
+            reader = csv.DictReader(csvfile)
+            filtered_rows = []
+
+            # 过滤 mintmark_class 在限1刻印系列中的行
+            for row in reader:
+                if row['mintmark_class'] in load_only1_mintmark_class():
+                    filtered_rows.append(row['id'])
+
+            # 写入到新的 txt 文件，每行一个 id
+            if filtered_rows:
+                if not os.path.exists(ONLY1_MINTMARK_IDS_FILE):
+                    with open(ONLY1_MINTMARK_IDS_FILE, 'w', newline='', encoding='utf-8-sig') as txtfile:
+                        for row_id in filtered_rows:
+                            txtfile.write(row_id + "\n")
+                    print(f"文件 '{ONLY1_MINTMARK_IDS_FILE}' 创建成功并写入限1刻印的 id 数据。")
+                else:
+                    print(f"文件 '{ONLY1_MINTMARK_IDS_FILE}' 已存在，未修改。")
+            else:
+                print("没有匹配到任何限1刻印的数据。")
+    else:
+        print(f"文件 '{DATA_FILE}' 不存在，请检查路径。")
+
+
 # 实现添加总和列的功能
 # 在此阶段排除来自同一系列的三个刻印组合，并且确保only1系列的刻印最多只有一个
 def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetric=False, use_only1=False):
@@ -205,9 +236,12 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
 
         # 确保相同的only1刻印不会重复出现
         if use_only1:
-            unique_ids = set(ids[i] for i in combination)
-            if len(unique_ids) < len(combination):
-                continue
+            # 先检查是否存在限1刻印类
+            if any(mintmark_classes[i] in only1_mintmark_class for i in combination):
+                # 再检查是否有重复的刻印 id
+                unique_ids = set(ids[i] for i in combination)
+                if len(unique_ids) < len(combination):
+                    continue
 
         # 如果需要对称性，确保组合中恰好有两个相同的元素
         if symmetric:
@@ -590,4 +624,6 @@ def create_gui():
     sys.exit(app.exec_())
 
 if __name__ == "__main__":
+    ensure_data_prepared()
+    generate_only1_mintmark_ids()
     create_gui()
