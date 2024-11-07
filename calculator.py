@@ -266,20 +266,29 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
         if len(set([mintmark_classes[i] for i in combination])) == 1:
             continue
 
-        # 确保相同的only1刻印不会重复出现
-        if use_only1:
-            # 先检查是否存在限1刻印类
-            if any(mintmark_classes[i] in only1_mintmark_class for i in combination):
-                # 再检查是否有重复的刻印 id
-                unique_ids = set(ids[i] for i in combination)
-                if len(unique_ids) < len(combination):
-                    continue
 
         # 如果需要对称性，确保组合中恰好有两个相同的元素
         if symmetric:
             if len(set(combination)) > 2:
                 continue
             if not any(count == 2 for count in class_counts.values()):
+                continue
+
+        # 检查组合中的刻印ID是否有重复
+        ids_in_combination = [ids[i] for i in combination]
+        unique_ids = set(ids_in_combination)
+
+        if len(unique_ids) < len(ids_in_combination):
+            # 如果有重复ID，检查是否属于限1系列
+            for i in combination:
+                if ids_in_combination.count(ids[i]) > 1 and ids[i] in only1_ids:
+                    # 如果限1系列的刻印有重复ID，跳过这个组合
+                    valid_combination = False
+                    break
+            else:
+                valid_combination = True
+
+            if not valid_combination:
                 continue
 
         # 检查属性目标是否符合要求
