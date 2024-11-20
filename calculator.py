@@ -15,6 +15,7 @@ import sys
 import pandas as pd
 import os
 
+
 # 定义用于存储刻印数据的文件路径
 FOLDER_PATH = "data"
 DATA_FILE = os.path.join(FOLDER_PATH, "mintmark_data.csv")
@@ -238,6 +239,8 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
     # 加载限制的系列id
     if use_only1:
         only1_ids = load_only1_mintmark_ids()  # 加载`only1`系列的ID集，用于后续判断
+        only1_ids = set(int(x) for x in only1_ids)  # 将 only1_ids 中的所有元素转换为整数
+
 
     # 遍历 filtered_mintmark_list 提取每个刻印的属性
     for mintmark in filtered_mintmark_list:
@@ -249,12 +252,12 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
             continue
 
         attr_values_list.append(total_attr_values)
-        ids.append(mintmark["id"])
+        ids.append(int(mintmark["id"]))  # 将ID存储为整数类型，便于后续排序
         descriptions.append(mintmark["description"])
         mintmark_classes.append(mintmark["mintmark_class"])
 
     candidates = list(range(len(ids)))
-    initial_combinations = set()  # 使用集合来确保唯一性
+    initial_combinations = []  # 使用列表来存储组合，便于后续排序
     data_to_save = []
 
     for combination in combinations_with_replacement(candidates, 3):
@@ -267,7 +270,6 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
         # 确保没有三个刻印来自于同一系列
         if len(set([mintmark_classes[i] for i in combination])) == 1:
             continue
-
 
         # 如果需要对称性，确保组合中恰好有两个相同的元素
         if symmetric:
@@ -283,23 +285,33 @@ def find_initial_combinations(filtered_mintmark_list, attribute_targets, symmetr
         if len(unique_ids) < len(ids_in_combination):
             # 如果有重复ID，检查是否属于限1系列
             for i in combination:
-                if ids_in_combination.count(ids[i]) > 1 and ids[i] in only1_ids:
-                    # 如果限1系列的刻印有重复ID，跳过这个组合
-                    valid_combination = False
-                    break
+                if ids_in_combination.count(ids[i]) > 1:
+                    if ids[i] in only1_ids:
+                        # 如果限1系列的刻印有重复ID，跳过这个组合
+                        valid_combination = False
+                        break
             else:
                 valid_combination = True
 
             if not valid_combination:
                 continue
 
-        # 检查属性目标是否符合要求
+        # **对组合的刻印ID从大到小排序**
+        sorted_combination = sorted(combination, key=lambda i: ids[i], reverse=True)
+
+        # 添加到初步组合列表
+        initial_combinations.append(tuple(sorted_combination))
+
+    # 对所有组合进行排序，优先比较第一个刻印的ID，如果相同则比较第二个，以此类推
+    initial_combinations = sorted(initial_combinations, key=lambda comb: tuple(ids[i] for i in comb), reverse=True)
+
+    # 检查属性目标是否符合要求，并准备数据保存到文件
+    for combination in initial_combinations:
         valid_combination = all(
             target_min <= sum(attr_values_list[i][attr_index] for i in combination) <= target_max
             for attr_index, (target_min, target_max) in attribute_targets.items()
         )
         if valid_combination:
-            initial_combinations.add(combination)
             attr_values_sum = [
                 sum(attr_values_list[i][attr_index] for i in combination) for attr_index in range(6)
             ]
